@@ -405,7 +405,7 @@ class PostFinderImpl implements PostFinder {
                 builder.andQuery(equal("spec.tags", tagName));
                 hasQuery = true;
             }
-            if (pinned == null) {
+            if (pinned != null) {
                 builder.andQuery(equal("spec.pinned", pinned));
                 hasQuery = true;
             }
