@@ -157,12 +157,15 @@ public class PostReconciler implements Reconciler<Reconciler.Request> {
             var ref = Ref.of(post);
             // handle contributors
             var headSnapshot = post.getSpec().getHeadSnapshot();
-            var contributors = listSnapshots(ref).stream()
+            var snapshotContributors = listSnapshots(ref).stream()
                     .map(snapshot -> {
                         Set<String> usernames = snapshot.getSpec().getContributors();
                         return Objects.requireNonNullElseGet(usernames, () -> new HashSet<String>());
                     })
-                    .flatMap(Set::stream)
+                    .flatMap(Set::stream);
+            var ownerContributor = Stream.ofNullable(post.getSpec().getOwner())
+                    .filter(StringUtils::isNotBlank);
+            var contributors = Stream.concat(snapshotContributors, ownerContributor)
                     .distinct()
                     .sorted()
                     .toList();
