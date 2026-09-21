@@ -143,7 +143,8 @@ public class LuceneSearchEngine implements SearchEngine, InitializingBean, Dispo
             queryParser.setFuzzyPrefixLength(FuzzyQuery.defaultPrefixLength);
 
             var keyword = option.getKeyword();
-            var query = queryParser.parse(keyword, null);
+            var escapedKeyword = QueryParserBase.escape(keyword);
+            var query = queryParser.parse(escapedKeyword, null);
             var queryBuilder = new BooleanQuery.Builder().add(query, MUST);
 
             var filterExposed = option.getFilterExposed();
