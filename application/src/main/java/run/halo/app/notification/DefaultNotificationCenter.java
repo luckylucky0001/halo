@@ -95,6 +95,9 @@ public class DefaultNotificationCenter implements NotificationCenter {
                 .collectList()
                 
                 .flatMap(elements -> {
+                    if (elements.isEmpty()) {
+                        return Mono.empty();
+                    }
                     var dispatchMono = Flux.fromIterable(elements)
                             .flatMap(this::sendNotification)
                             .then();
