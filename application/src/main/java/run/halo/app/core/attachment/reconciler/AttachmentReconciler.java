@@ -86,6 +86,12 @@ class AttachmentReconciler implements Reconciler<Request> {
     }
 
     void cleanUpResources(Attachment attachment) {
-        attachmentService.delete(attachment).block(Duration.ofSeconds(20));
+        attachmentService.delete(attachment)
+                .onErrorResume(ExtensionNotFoundException.class, e -> {
+                    log.warn("Skip cleaning up resources for attachment {} because extension was not found: {}",
+                            attachment.getMetadata().getName(), e.getMessage());
+                    return Mono.empty();
+                })
+                .block(Duration.ofSeconds(20));
     }
 }
