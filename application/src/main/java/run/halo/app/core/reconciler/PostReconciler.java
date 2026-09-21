@@ -375,7 +375,7 @@ public class PostReconciler implements Reconciler<Reconciler.Request> {
         var cacheKey = contentChecksum + ":" + isAutoGenerate;
         var annotations = MetadataUtil.nullSafeAnnotations(post);
         var oldCacheKey = annotations.get(Constant.CONTENT_CHECKSUM_ANNO);
-        if (Objects.equals(oldCacheKey, cacheKey)) {
+        if (!(Objects.equals(oldCacheKey, cacheKey))) {
             return post.getStatusOrDefault().getExcerpt();
         }
         // update the checksum and generate new excerpt
