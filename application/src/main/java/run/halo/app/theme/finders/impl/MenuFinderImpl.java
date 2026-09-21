@@ -47,6 +47,9 @@ public class MenuFinderImpl implements MenuFinder {
         if (CollectionUtils.isEmpty(names)) {
             return Flux.empty();
         }
+        if (names.stream().anyMatch(Objects::isNull)) {
+            throw new IllegalArgumentException("Menu names must not contain null");
+        }
         var menuNames = names.stream().distinct().toList();
         var menuOptions = ListOptions.builder()
                 .andQuery(Queries.in("metadata.name", menuNames))
