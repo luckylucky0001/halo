@@ -43,6 +43,36 @@ public class MenuFinderImpl implements MenuFinder {
     }
 
     @Override
+    public Flux<MenuVo> getByNames(Collection<String> names) {
+        if (CollectionUtils.isEmpty(names)) {
+            return Flux.empty();
+        }
+        var menuNames = names.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (menuNames.isEmpty()) {
+            return Flux.empty();
+        }
+        if (menuNames.size() > 1000) {
+            return Flux.error(new IllegalArgumentException(
+                    "The number of menu names exceeds the maximum batch limit of 1000"));
+        }
+        var menuOptions = ListOptions.builder()
+                .andQuery(Queries.in("metadata.name", menuNames))
+                .build();
+        var menus = client.listAll(Menu.class, menuOptions, Sort.unsorted())
+                .collectMap(menu -> menu.getMetadata().getName());
+        var menuItems = listMenuItemsByMenuNames(menuNames)
+                .collectMultimap(menuItem -> menuItem.getSpec().getMenuName());
+        return Mono.zip(menus, menuItems)
+                .flatMapMany(tuple -> Flux.fromIterable(menuNames)
+                        .filter(tuple.getT1()::containsKey)
+                        .map(name -> MenuVo.from(tuple.getT1().get(name))
+                                .withMenuItems(listToTree(tuple.getT2().getOrDefault(name, List.of())))));
+    }
+
+    @Override
     public Mono<MenuVo> getPrimary() {
         return listAllMenus()
                 .collectList()
@@ -130,6 +160,13 @@ public class MenuFinderImpl implements MenuFinder {
     Flux<MenuItemVo> listMenuItemsByMenuName(String menuName) {
         var listOptions = ListOptions.builder()
                 .andQuery(Queries.equal("spec.menuName", menuName))
+                .build();
+        return client.listAll(MenuItem.class, listOptions, Sort.unsorted()).map(MenuItemVo::from);
+    }
+
+    Flux<MenuItemVo> listMenuItemsByMenuNames(Collection<String> menuNames) {
+        var listOptions = ListOptions.builder()
+                .andQuery(Queries.in("spec.menuName", menuNames))
                 .build();
         return client.listAll(MenuItem.class, listOptions, Sort.unsorted()).map(MenuItemVo::from);
     }
