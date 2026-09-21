@@ -296,8 +296,50 @@ class PluginReconciler implements Reconciler<Request>, DisposableBean {
             log.info("Deleting plugin {} in plugin manager.", pluginName);
             var deleted = pluginManager.deletePlugin(pluginName);
             if (!deleted) {
-                log.warn("Failed to delete plugin {}", pluginName);
+                throw new RequeueException(Result.requeue(Duration.ofSeconds(1)),
+                        "Failed to delete plugin " + pluginName);
             }
+        }
+        cleanUpOrphanedJars(pluginName);
+    }
+
+    private void cleanUpOrphanedJars(String pluginName) {
+        var jarNamePrefix = pluginName + "-";
+        pluginManager.getPluginsRoots().forEach(pluginsRoot -> {
+            try (var jarPaths = Files.list(pluginsRoot)) {
+                jarPaths.filter(Files::isRegularFile)
+                        .filter(jarPath -> {
+                            var fileName = jarPath.getFileName().toString();
+                            return fileName.startsWith(jarNamePrefix) && fileName.endsWith(".jar");
+                        })
+                        .filter(jarPath -> pluginName.equals(readPluginNameFromJar(jarPath)))
+                        .forEach(jarPath -> {
+                            try {
+                                Files.deleteIfExists(jarPath);
+                            } catch (IOException e) {
+                                throw new RequeueException(
+                                        Result.requeue(Duration.ofSeconds(1)),
+                                        "Failed to delete orphaned plugin JAR " + jarPath,
+                                        e);
+                            }
+                        });
+            } catch (IOException e) {
+                throw new RequeueException(
+                        Result.requeue(Duration.ofSeconds(1)),
+                        "Failed to scan plugin root " + pluginsRoot,
+                        e);
+            }
+        });
+    }
+
+    private String readPluginNameFromJar(Path jarPath) {
+        try {
+            var plugin = new YamlPluginFinder().find(jarPath);
+            return plugin != null && plugin.getMetadata() != null
+                    ? plugin.getMetadata().getName() : null;
+        } catch (Exception e) {
+            log.warn("Failed to read plugin name from JAR {}", jarPath, e);
+            return null;
         }
     }
 
