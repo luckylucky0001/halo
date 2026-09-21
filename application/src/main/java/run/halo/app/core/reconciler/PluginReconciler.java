@@ -317,7 +317,15 @@ class PluginReconciler implements Reconciler<Request>, DisposableBean {
                             return fn.startsWith(prefix) && fn.endsWith(".jar");
                         })
                         .forEach(jar -> {
-                            var name = readPluginNameFromJar(jar);
+                            String name;
+                            try {
+                                name = readPluginNameFromJar(jar);
+                            } catch (IOException e) {
+                                throw new RequeueException(
+                                        Result.requeue(Duration.ofSeconds(10)),
+                                        "Failed to read orphaned JAR " + jar + " for plugin "
+                                                + pluginName);
+                            }
                             if (pluginName.equals(name)) {
                                 try {
                                     log.info("Deleting orphaned plugin JAR {}", jar);
@@ -335,13 +343,16 @@ class PluginReconciler implements Reconciler<Request>, DisposableBean {
         }
     }
 
-    private String readPluginNameFromJar(Path jarPath) {
+    private String readPluginNameFromJar(Path jarPath) throws IOException {
         try {
             // YamlPluginFinder properly closes the zip FileSystem opened for the JAR.
             return new YamlPluginFinder().find(jarPath).getMetadata().getName();
         } catch (Exception e) {
             log.warn("Failed to read manifest from {}", jarPath, e);
-            return null;
+            if (e instanceof IOException) {
+                throw (IOException) e;
+            }
+            throw new IOException("Failed to read manifest from " + jarPath, e);
         }
     }
 
