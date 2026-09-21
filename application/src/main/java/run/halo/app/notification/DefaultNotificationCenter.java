@@ -92,14 +92,21 @@ public class DefaultNotificationCenter implements NotificationCenter {
         return getNotifiersBySubscriber(subscriber, reason)
                 .flatMap(notifierName -> client.fetch(NotifierDescriptor.class, notifierName))
                 .flatMap(descriptor -> prepareNotificationElement(subscriber, reason, descriptor))
-                .flatMap(element -> {
-                    var dispatchMono = sendNotification(element);
+                .collectList()
+                
+                .flatMap(elements -> {
+                    if (elements.isEmpty()) {
+                        return Mono.empty();
+                    }
+                    var dispatchMono = Flux.fromIterable(elements)
+                            .flatMap(this::sendNotification)
+                            .then();
                     if (subscriber.isAnonymous()) {
                         return dispatchMono;
                     }
                     // create notification for user
-                    var innerNofificationMono = createNotification(element);
-                    return Mono.when(dispatchMono, innerNofificationMono);
+                    var innerNotificationMono = createNotification(elements.get(0));
+                    return Mono.when(dispatchMono, innerNotificationMono);
                 })
                 .then();
     }
