@@ -308,7 +308,7 @@ class PluginReconciler implements Reconciler<Request>, DisposableBean {
     private void cleanUpOrphanedJars(String pluginName) {
         var prefix = pluginName + "-";
         for (var pluginRoot : pluginManager.getPluginsRoots()) {
-            if (Files.exists(pluginRoot)) {
+            if (!Files.exists(pluginRoot)) {
                 continue;
             }
             try (var files = Files.list(pluginRoot)) {
