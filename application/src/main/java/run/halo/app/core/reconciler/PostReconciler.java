@@ -370,13 +370,19 @@ public class PostReconciler implements Reconciler<Reconciler.Request> {
 
         var contentChecksum =
                 Hashing.sha256().hashString(content.getContent(), UTF_8).toString();
+        var excerpt = post.getSpec().getExcerpt();
+        if (excerpt == null) {
+            excerpt = new Post.Excerpt();
+        }
+        var isAutoGenerate = defaultIfNull(excerpt.getAutoGenerate(), true);
+        var actualChecksum = contentChecksum + ":" + isAutoGenerate;
         var annotations = MetadataUtil.nullSafeAnnotations(post);
         var oldChecksum = annotations.get(Constant.CONTENT_CHECKSUM_ANNO);
-        if (Objects.equals(oldChecksum, contentChecksum)) {
+        if (Objects.equals(oldChecksum, actualChecksum)) {
             return post.getStatusOrDefault().getExcerpt();
         }
         // update the checksum and generate new excerpt
-        annotations.put(Constant.CONTENT_CHECKSUM_ANNO, contentChecksum);
+        annotations.put(Constant.CONTENT_CHECKSUM_ANNO, actualChecksum);
 
         var tags = listTagDisplayNames(post);
 
