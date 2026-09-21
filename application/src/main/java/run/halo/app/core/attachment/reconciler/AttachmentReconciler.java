@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 import run.halo.app.core.attachment.AttachmentChangedEvent;
 import run.halo.app.core.extension.attachment.Attachment;
 import run.halo.app.core.extension.attachment.Attachment.AttachmentStatus;
@@ -23,6 +24,7 @@ import run.halo.app.extension.controller.ControllerBuilder;
 import run.halo.app.extension.controller.Reconciler;
 import run.halo.app.extension.controller.Reconciler.Request;
 import run.halo.app.extension.controller.RequeueException;
+import run.halo.app.extension.exception.ExtensionNotFoundException;
 
 @Slf4j
 @Component
@@ -84,6 +86,12 @@ class AttachmentReconciler implements Reconciler<Request> {
     }
 
     void cleanUpResources(Attachment attachment) {
-        attachmentService.delete(attachment).block(Duration.ofSeconds(20));
+        attachmentService.delete(attachment)
+                .onErrorResume(ExtensionNotFoundException.class, e -> {
+                    log.warn("Skip cleaning up resources for attachment {} because extension was not found: {}",
+                            attachment.getMetadata().getName(), e.getMessage());
+                    return Mono.empty();
+                })
+                .block(Duration.ofSeconds(20));
     }
 }
