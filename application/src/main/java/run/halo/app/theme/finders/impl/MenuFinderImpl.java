@@ -47,10 +47,17 @@ public class MenuFinderImpl implements MenuFinder {
         if (CollectionUtils.isEmpty(names)) {
             return Flux.empty();
         }
-        if (names.stream().anyMatch(Objects::isNull)) {
-            throw new IllegalArgumentException("Menu names must not contain null");
+        var menuNames = names.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (menuNames.isEmpty()) {
+            return Flux.empty();
         }
-        var menuNames = names.stream().distinct().toList();
+        if (menuNames.size() > 1000) {
+            return Flux.error(new IllegalArgumentException(
+                    "The number of menu names exceeds the maximum batch limit of 1000"));
+        }
         var menuOptions = ListOptions.builder()
                 .andQuery(Queries.in("metadata.name", menuNames))
                 .build();
